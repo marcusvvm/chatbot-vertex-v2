@@ -57,44 +57,67 @@ after_script:
   # Executa após script de atualização do projeto (Python/FastAPI)
   - |
     if [ -d "$PROJETO_DIR" ]; then
-        echo "O diretório $PROJETO_DIR existe"
+        echo "=========================================="
+        echo "🚀 DEPLOY BIA-BACK (Python/FastAPI)"
+        echo "=========================================="
         cd "$PROJETO_DIR"
 
-        echo "Usuário atual:"
-        whoami
+        echo "📁 Diretório: $(pwd)"
+        echo "👤 Usuário: $(whoami)"
+        echo "🐍 Python: $(python3 --version)"
 
-        echo "Diretório atual:"
-        pwd
-
-        echo "Versão do Python:"
-        python3 --version
-
-        # Criar/atualizar ambiente virtual
-        echo "Configurando ambiente virtual..."
-        if [ ! -d "venv" ]; then
-            echo "Criando ambiente virtual..."
-            python3 -m venv venv
+        # Recriar ambiente virtual para garantir compatibilidade
+        echo ""
+        echo "📦 Configurando ambiente virtual..."
+        if [ -d "venv" ]; then
+            echo "Removendo venv antigo para garantir compatibilidade..."
+            rm -rf venv
         fi
+        echo "Criando novo ambiente virtual..."
+        python3 -m venv venv
 
         # Ativar venv e instalar dependências
-        echo "Instalando dependências..."
+        echo ""
+        echo "📥 Instalando dependências..."
         source venv/bin/activate
-        pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install --upgrade pip --quiet
+        pip install -r requirements.txt --quiet
+        echo "✅ Dependências instaladas!"
 
-        echo "Dependências instaladas com sucesso!"
+        # Parar processo gunicorn existente (se houver)
+        echo ""
+        echo "🔄 Reiniciando servidor..."
+        pkill -f "gunicorn app.main:app" || true
+        sleep 2
 
-        # Reiniciar serviço Gunicorn (se configurado como systemd service)
-        echo "Reiniciando serviço..."
-        if systemctl is-active --quiet bia-back; then
-            sudo systemctl restart bia-back
-            echo "Serviço bia-back reiniciado!"
+        # Iniciar gunicorn em background
+        echo "Iniciando Gunicorn..."
+        nohup ./venv/bin/gunicorn app.main:app \
+            --workers 4 \
+            --worker-class uvicorn.workers.UvicornWorker \
+            --bind 0.0.0.0:8000 \
+            --timeout 120 \
+            --access-logfile /var/log/bia-back-access.log \
+            --error-logfile /var/log/bia-back-error.log \
+            --daemon
+
+        sleep 3
+
+        # Verificar se o servidor iniciou
+        if pgrep -f "gunicorn app.main:app" > /dev/null; then
+            echo "✅ Servidor Gunicorn iniciado com sucesso!"
+            echo "📍 Endpoint: http://localhost:8000"
+            echo "📋 Logs: /var/log/bia-back-*.log"
         else
-            echo "Serviço bia-back não está configurado como systemd service."
-            echo "Execute manualmente: ./venv/bin/gunicorn app.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000"
+            echo "❌ Falha ao iniciar o servidor!"
+            exit 1
         fi
 
-        echo "Deploy finalizado!"
+        echo ""
+        echo "=========================================="
+        echo "🎉 DEPLOY FINALIZADO COM SUCESSO!"
+        echo "=========================================="
     else
-        echo "Diretório $PROJETO_DIR não existe para o deploy..."
+        echo "❌ Diretório $PROJETO_DIR não existe!"
+        exit 1
     fi
