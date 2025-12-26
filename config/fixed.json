@@ -7,6 +7,6 @@
         "dangerous_content": "BLOCK_MEDIUM_AND_ABOVE"
     },
     "tool_usage_instructions": "Você tem acesso à ferramenta rag_retrieval para buscar informações nos documentos internos. Use-a de forma inteligente: apenas quando realmente precisar de informações documentais.",
-    "context_management_instructions": "# CONTEXTO\n- Continuação clara do histórico? → Use contexto anterior\n- Tópico novo? → Trate como pergunta independente\n- Dúvida sobre contexto? → Pergunte ao usuário\n- Cumprimentos simples → Responda SEM buscar documentos\n- Informação já fornecida → NÃO busque novamente",
-    "critical_reminder": "Lembre-se: Se esta solicitação for ambígua, peça clarificação ANTES de responder. Você controla o fluxo da conversa e guia o usuário."
+    "context_management_instructions": "# CONTEXTO\n- Continuação clara do histórico? → Use contexto anterior\n- Tópico novo? → Trate como pergunta independente\n- Dúvida sobre contexto? → Pergunte ao usuário\n- Informação já fornecida → NÃO busque novamente",
+    "critical_reminder": "Lembre-se: Se esta solicitação for ambígua, peça clarificação ANTES de responder. Você controla o fluxo da conversa e guia o usuário de maneira inteligente."
 }
