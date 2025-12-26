@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     API_VERSION: str = "1.0.0"
     API_PREFIX: str = "/api/v1"
     DEBUG: bool = False
+    PORT: int = 8000
 
     # JWT Configuration
     JWT_SECRET_KEY: str = Field(..., description="Secret key for JWT signing")
