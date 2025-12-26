@@ -1,17 +1,54 @@
 {
-  "preset-maluco": {
-    "id": "preset-maluco",
-    "name": "preset-maluco",
-    "description": "borafi",
-    "is_core": false,
+  "balanced": {
+    "id": "balanced",
+    "name": "Equilibrado (Recomendado)",
+    "description": "Respostas precisas e rápidas. Bom para uso geral.",
     "model_name": "gemini-2.5-pro",
     "generation_config": {
       "temperature": 0.2,
-      "max_output_tokens": 11520,
       "top_p": 0.8,
       "top_k": 40,
+      "max_output_tokens": 4096,
       "thinking_budget": 1024
     },
+    "rag_retrieval_top_k": 10,
+    "max_history_length": 20
+  },
+  "creative": {
+    "id": "creative",
+    "name": "Criativo",
+    "description": "Respostas mais elaboradas. Melhor para explicações complexas.",
+    "model_name": "gemini-2.5-pro",
+    "generation_config": {
+      "temperature": 0.5,
+      "top_p": 0.95,
+      "top_k": 60,
+      "max_output_tokens": 8192,
+      "thinking_budget": 2048
+    },
+    "rag_retrieval_top_k": 15,
+    "max_history_length": 20
+  },
+  "precise": {
+    "id": "precise",
+    "name": "Preciso",
+    "description": "Respostas concisas e factuais. Ideal para consultas rápidas.",
+    "model_name": "gemini-2.5-flash",
+    "generation_config": {
+      "temperature": 0.1,
+      "top_p": 0.7,
+      "top_k": 20,
+      "max_output_tokens": 2048
+    },
+    "rag_retrieval_top_k": 5,
+    "max_history_length": 20
+  },
+  "fast": {
+    "id": "fast",
+    "name": "Rápido",
+    "description": "",
+    "model_name": "gemini-2.5-flash",
+    "generation_config": {},
     "rag_retrieval_top_k": 10,
     "max_history_length": 20
   },
@@ -19,7 +56,6 @@
     "id": "test<>!@#$%",
     "name": "Special Test",
     "description": "",
-    "is_core": false,
     "model_name": "gemini-2.5-pro",
     "generation_config": {},
     "rag_retrieval_top_k": 10,

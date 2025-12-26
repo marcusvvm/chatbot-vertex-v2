@@ -1,34 +1,62 @@
-# Documento de Teste para RAG API
+# Documento de Teste - RAG API
 
-Este é um arquivo de teste para validar o funcionamento do sistema RAG (Retrieval Augmented Generation).
-
-## Informações de Teste
-
-O CREA-GO (Conselho Regional de Engenharia e Agronomia de Goiás) é uma autarquia federal que fiscaliza o exercício profissional nas áreas de Engenharia, Agronomia e Geociências.
-
-### Dados Fictícios para Recuperação
-
-- Presidente: Engenheiro Civil João da Silva
-- Vice-Presidente: Engenheira Agrônoma Maria Santos  
-- Sede: Rua 100, Número 200, Setor Central, Goiânia-GO
-- Telefone: (62) 3333-4444
-- Email: contato@creago.org.br
-
-### Departamentos
-
-1. **Fiscalização**: Responsável pela verificação do exercício profissional
-2. **Registro**: Cadastro de profissionais e empresas
-3. **Atendimento**: Suporte ao profissional registrado
-4. **Jurídico**: Assessoria legal e processos administrativos
-
-### Perguntas Frequentes
-
-**P: Como faço para me registrar no CREA?**
-R: O registro pode ser feito online pelo portal do CREA ou presencialmente na sede.
-
-**P: Qual o valor da anuidade?**
-R: O valor varia conforme a categoria profissional. Consulte a tabela de anuidades.
+Este documento contém informações de exemplo para validar o funcionamento do sistema de chat com RAG.
 
 ---
-Arquivo gerado automaticamente para testes do sistema RAG API.
-Data de criação: 2024-12-26
+
+## Informações do Projeto
+
+**Nome do Projeto:** RAG API - Vertex AI
+**Versão:** 2.0.0
+**Última Atualização:** Dezembro 2025
+
+---
+
+## Perguntas Frequentes (FAQ)
+
+### 1. O que é o RAG Engine?
+O RAG Engine (Retrieval-Augmented Generation) é um serviço do Google Vertex AI que permite combinar a capacidade generativa de modelos de linguagem com a recuperação de informações de uma base de documentos. Isso permite que o assistente responda perguntas baseando-se em documentos específicos do usuário.
+
+### 2. Quais formatos de arquivo são suportados?
+A API suporta os seguintes formatos de documento:
+- PDF (.pdf)
+- Texto (.txt)
+- Word (.docx)
+- Markdown (.md)
+
+O tamanho máximo por arquivo é de 25 MB.
+
+### 3. Como funciona a autenticação?
+A API utiliza autenticação JWT (JSON Web Token). Para acessar os endpoints protegidos, é necessário incluir um token válido no header Authorization da requisição.
+
+Exemplo:
+```
+Authorization: Bearer seu_token_aqui
+```
+
+### 4. Quais são os presets disponíveis?
+Os presets são configurações pré-definidas para o comportamento do chat:
+
+| Preset    | Modelo           | Temperatura | Uso Recomendado       |
+|-----------|------------------|-------------|----------------------|
+| balanced  | gemini-2.5-pro   | 0.2         | Uso geral            |
+| creative  | gemini-2.5-pro   | 0.5         | Explicações complexas|
+| precise   | gemini-2.5-flash | 0.1         | Consultas rápidas    |
+| fast      | gemini-2.5-flash | 0.2         | Baixa latência       |
+
+---
+
+## Dados de Contato
+
+**Mantenedor:** Marcus Vinicius
+**Email:** marcuscreago@gmail.com
+**Organização:** CREA-GO
+
+---
+
+## Notas Técnicas
+
+- O sistema utiliza Google Vertex AI como backend de IA.
+- A região do RAG Engine é europe-west3.
+- A região do modelo Gemini é us-central1.
+- O servidor de produção usa Gunicorn com workers Uvicorn.

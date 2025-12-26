@@ -229,15 +229,15 @@ Lista todos os presets.
 ```json
 {
   "presets": [
-    {"id": "balanced", "name": "Equilibrado", "is_core": true},
-    {"id": "creative", "name": "Criativo", "is_core": true},
-    {"id": "precise", "name": "Preciso", "is_core": true},
-    {"id": "fast", "name": "Rápido", "is_core": true}
+    {"id": "balanced", "name": "Equilibrado", "model_name": "gemini-2.5-pro"},
+    {"id": "creative", "name": "Criativo", "model_name": "gemini-2.5-pro"},
+    {"id": "precise", "name": "Preciso", "model_name": "gemini-2.5-flash"},
+    {"id": "fast", "name": "Rápido", "model_name": "gemini-2.5-flash"}
   ]
 }
 ```
 
-**Core Presets (imutáveis):**
+**Presets Default:**
 
 | ID         | Modelo           | Temperature | Uso                   |
 | ---------- | ---------------- | ----------- | --------------------- |
@@ -245,6 +245,8 @@ Lista todos os presets.
 | `creative` | gemini-2.5-pro   | 0.5         | Explicações complexas |
 | `precise`  | gemini-2.5-flash | 0.1         | Consultas rápidas     |
 | `fast`     | gemini-2.5-flash | 0.2         | Baixa latência        |
+
+> **Nota:** Todos os presets são editáveis via PUT e exclusíveis via DELETE.
 
 ---
 
@@ -256,9 +258,12 @@ Detalhes de um preset.
 
 #### `POST /api/v1/config/presets`
 
-Cria preset customizado.
+Cria novo preset.
 
 **Request:**
+
+> **Nota:** `id` deve ter no máximo 64 caracteres.
+
 ```json
 {
   "id": "juridico",
@@ -274,7 +279,7 @@ Cria preset customizado.
 
 #### `PUT /api/v1/config/presets/{preset_id}`
 
-Atualiza preset customizado.
+Atualiza preset existente.
 
 ---
 
@@ -321,11 +326,11 @@ Aplica um preset a um corpus.
 
 ### Erro Servidor
 
-| Código | Causa          |
-| ------ | -------------- |
-| 500    | Erro interno   |
-| 502    | Erro Vertex AI |
-| 504    | Timeout        |
+| Código | Causa                           |
+| ------ | ------------------------------- |
+| 500    | Erro interno / Validação Google |
+| 502    | Erro Vertex AI                  |
+| 504    | Timeout                         |
 
 ---
 

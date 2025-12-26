@@ -8,7 +8,7 @@ que está 100% production-ready. Este script assume papel de "adversário"
 tentando quebrar o sistema.
 
 Categorias de Teste:
-1. Presets Core (CRUD + proteções)
+1. Presets Default (CRUD)
 2. Presets Customizados (CRUD completo)
 3. Apply Preset (fluxo completo)
 4. Corpus Config (CRUD + passthrough)
@@ -232,10 +232,10 @@ class ProductionAPITester:
     # CATEGORY 1: PRESETS CORE
     # =========================================================================
     
-    def test_presets_core(self):
-        """Test core presets (read-only)"""
+    def test_presets_default(self):
+        """Test default presets"""
         self.log("📦", "="*60)
-        self.log("📦", "CATEGORY 1: Core Presets")
+        self.log("📦", "CATEGORY 1: Default Presets")
         self.log("📦", "="*60)
         
         # Test 1.1: List presets
@@ -244,82 +244,60 @@ class ProductionAPITester:
             data = r.json()
             presets = data.get("presets", [])
             
-            # Verify all 4 core presets exist
-            core_ids = {"balanced", "creative", "precise", "fast"}
+            # Verify all 4 default presets exist
+            default_ids = {"balanced", "creative", "precise", "fast"}
             found_ids = {p["id"] for p in presets}
             
-            if core_ids.issubset(found_ids):
-                self.add_result("Core Presets", "List presets returns all 4 core", True,
+            if default_ids.issubset(found_ids):
+                self.add_result("Default Presets", "List presets returns all 4 defaults", True,
                                f"Found {len(presets)} presets", d, "GET /presets",
                                response_body=data, status_code=200)
             else:
-                missing = core_ids - found_ids
-                self.add_result("Core Presets", "List presets returns all 4 core", False,
+                missing = default_ids - found_ids
+                self.add_result("Default Presets", "List presets returns all 4 defaults", False,
                                f"Missing: {missing}", d, "GET /presets",
                                response_body=data, status_code=200, severity="critical")
         else:
-            self.add_result("Core Presets", "List presets", False,
+            self.add_result("Default Presets", "List presets", False,
                            f"Status {r.status_code}", d, "GET /presets",
                            status_code=r.status_code, severity="critical")
         
-        # Test 1.2: Get each core preset
+        # Test 1.2: Get each default preset
         for preset_id in ["balanced", "creative", "precise", "fast"]:
             r, d = self.request("GET", f"/config/presets/{preset_id}")
             if r.status_code == 200:
                 data = r.json()
-                required = ["id", "name", "description", "is_core", "model_name", "generation_config"]
+                required = ["id", "name", "description", "model_name", "generation_config"]
                 missing = [f for f in required if f not in data]
                 
-                if not missing and data.get("is_core") == True:
-                    self.add_result("Core Presets", f"Get preset '{preset_id}'", True,
-                                   "All fields present, is_core=true", d, 
+                if not missing:
+                    self.add_result("Default Presets", f"Get preset '{preset_id}'", True,
+                                   "All fields present", d, 
                                    f"GET /presets/{preset_id}", status_code=200)
                 else:
-                    self.add_result("Core Presets", f"Get preset '{preset_id}'", False,
-                                   f"Missing: {missing}, is_core={data.get('is_core')}", d,
+                    self.add_result("Default Presets", f"Get preset '{preset_id}'", False,
+                                   f"Missing: {missing}", d,
                                    f"GET /presets/{preset_id}", response_body=data, 
                                    status_code=200, severity="high")
             else:
-                self.add_result("Core Presets", f"Get preset '{preset_id}'", False,
+                self.add_result("Default Presets", f"Get preset '{preset_id}'", False,
                                f"Status {r.status_code}", d, f"GET /presets/{preset_id}",
                                status_code=r.status_code, severity="critical")
         
-        # Test 1.3: Cannot create preset with core ID
-        for core_id in ["balanced", "creative", "precise", "fast"]:
-            body = {"id": core_id, "name": "Attempted Override"}
-            r, d = self.request("POST", "/config/presets", json=body)
-            
-            if r.status_code == 400:
-                self.add_result("Core Presets", f"Reject create with core ID '{core_id}'", True,
-                               "Correctly rejected with 400", d, "POST /presets",
-                               request_body=body, status_code=400)
-            else:
-                self.add_result("Core Presets", f"Reject create with core ID '{core_id}'", False,
-                               f"Expected 400, got {r.status_code}", d, "POST /presets",
-                               request_body=body, status_code=r.status_code, severity="critical")
-        
-        # Test 1.4: Cannot modify core preset
-        body = {"name": "Hacked Name"}
+        # Test 1.3: Default presets are editable
+        body = {"name": "Balanced Modified"}
         r, d = self.request("PUT", "/config/presets/balanced", json=body)
-        if r.status_code == 400:
-            self.add_result("Core Presets", "Reject modify core preset", True,
-                           "Correctly rejected with 400", d, "PUT /presets/balanced",
-                           request_body=body, status_code=400)
+        if r.status_code == 200:
+            self.add_result("Default Presets", "Edit default preset 'balanced'", True,
+                           "Updated successfully", d, "PUT /presets/balanced",
+                           request_body=body, status_code=200)
+            # Restore original name
+            restore_body = {"name": "Equilibrado (Recomendado)"}
+            self.request("PUT", "/config/presets/balanced", json=restore_body)
         else:
-            self.add_result("Core Presets", "Reject modify core preset", False,
-                           f"Expected 400, got {r.status_code}", d, "PUT /presets/balanced",
-                           request_body=body, status_code=r.status_code, severity="critical")
-        
-        # Test 1.5: Cannot delete core preset
-        r, d = self.request("DELETE", "/config/presets/balanced")
-        if r.status_code == 400:
-            self.add_result("Core Presets", "Reject delete core preset", True,
-                           "Correctly rejected with 400", d, "DELETE /presets/balanced",
-                           status_code=400)
-        else:
-            self.add_result("Core Presets", "Reject delete core preset", False,
-                           f"Expected 400, got {r.status_code}", d, "DELETE /presets/balanced",
-                           status_code=r.status_code, severity="critical")
+            self.add_result("Default Presets", "Edit default preset 'balanced'", False,
+                           f"Status {r.status_code}", d, "PUT /presets/balanced",
+                           request_body=body, status_code=r.status_code, severity="high")
     
     # =========================================================================
     # CATEGORY 2: PRESETS CUSTOMIZADOS
@@ -351,15 +329,9 @@ class ProductionAPITester:
         if r.status_code == 201:
             self.created_presets.append(test_id)
             data = r.json()
-            if data.get("preset", {}).get("is_core") == False:
-                self.add_result("Custom Presets", "Create custom preset", True,
-                               f"Created '{test_id}'", d, "POST /presets",
-                               request_body=body, response_body=data, status_code=201)
-            else:
-                self.add_result("Custom Presets", "Create custom preset", False,
-                               "is_core should be False", d, "POST /presets",
-                               request_body=body, response_body=data, 
-                               status_code=201, severity="high")
+            self.add_result("Custom Presets", "Create custom preset", True,
+                           f"Created '{test_id}'", d, "POST /presets",
+                           request_body=body, response_body=data, status_code=201)
         else:
             self.add_result("Custom Presets", "Create custom preset", False,
                            f"Status {r.status_code}", d, "POST /presets",
@@ -467,7 +439,7 @@ class ProductionAPITester:
         self.log("🎯", "CATEGORY 3: Apply Preset to Corpus")
         self.log("🎯", "="*60)
         
-        # Test 3.1: Apply each core preset
+        # Test 3.1: Apply each default preset
         for preset_id in ["balanced", "creative", "precise", "fast"]:
             r, d = self.request("POST", f"/config/corpus/{TEST_CORPUS_ID}/apply-preset/{preset_id}")
             
@@ -1028,7 +1000,7 @@ class ProductionAPITester:
         
         try:
             # Run all test categories
-            self.test_presets_core()
+            self.test_presets_default()
             self.test_presets_custom()
             self.test_apply_preset()
             self.test_corpus_config()

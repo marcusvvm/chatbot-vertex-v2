@@ -2,7 +2,7 @@
 E2E Test: Preset System and Configuration Merge
 
 This script tests:
-1. Preset listing (core + custom)
+1. Preset listing
 2. Apply preset to corpus
 3. Configuration merge verification
 4. Chat respects applied configuration
@@ -46,8 +46,7 @@ def test_list_presets():
         presets = data.get("presets", [])
         print(f"✅ Found {len(presets)} presets:")
         for p in presets:
-            core_tag = "🔒 CORE" if p.get("is_core") else "📝 CUSTOM"
-            print(f"   - {core_tag} {p['id']}: {p['name']} ({p['model_name']})")
+            print(f"   - {p['id']}: {p['name']} ({p['model_name']})")
         return presets
     else:
         print(f"❌ Failed: {response.status_code} - {response.text}")
@@ -191,7 +190,7 @@ def test_custom_preset_crud():
     
     if response.status_code == 200:
         preset = response.json()
-        print(f"   ✅ Read: {preset.get('name')} (is_core={preset.get('is_core')})")
+        print(f"   ✅ Read: {preset.get('name')}")
     else:
         print(f"   ❌ Read failed: {response.status_code}")
     
@@ -225,29 +224,27 @@ def test_custom_preset_crud():
     else:
         print(f"   ❌ Delete failed: {response.status_code} - {response.text}")
 
-def test_core_preset_protection():
-    """Test 8: Verify core presets cannot be modified."""
-    separator("TEST 8: Core Preset Protection")
+def test_default_preset_edit():
+    """Test 8: Verify default presets can be edited."""
+    separator("TEST 8: Default Preset Edit")
     
-    # Try to modify core preset
-    print("\n🔒 Attempting to modify core preset 'balanced'...")
+    # Modify default preset
+    print("\n📝 Editing default preset 'balanced'...")
     response = requests.put(
         f"{API_URL}/api/v1/config/presets/balanced",
         headers=get_headers(),
-        json={"description": "Hacked!"}
+        json={"description": "Modified by test"}
     )
     
-    if response.status_code == 400:
-        print(f"   ✅ Correctly rejected: {response.json().get('detail')}")
-    else:
-        print(f"   ❌ Unexpected response: {response.status_code}")
-    
-    # Try to delete core preset
-    print("\n🔒 Attempting to delete core preset 'creative'...")
-    response = requests.delete(f"{API_URL}/api/v1/config/presets/creative", headers=get_headers())
-    
-    if response.status_code == 400:
-        print(f"   ✅ Correctly rejected: {response.json().get('detail')}")
+    if response.status_code == 200:
+        print(f"   ✅ Edit successful")
+        # Restore
+        requests.put(
+            f"{API_URL}/api/v1/config/presets/balanced",
+            headers=get_headers(),
+            json={"description": "Respostas precisas e rápidas. Bom para uso geral."}
+        )
+        print(f"   ✅ Restored original description")
     else:
         print(f"   ❌ Unexpected response: {response.status_code}")
 
@@ -308,17 +305,17 @@ def main():
     test_apply_preset_to_corpus(CORPUS_ID, "balanced")
     test_get_corpus_config(CORPUS_ID)  # Check after apply
     test_custom_preset_crud()
-    test_core_preset_protection()
+    test_default_preset_edit()
     test_config_merge_hierarchy(CORPUS_ID)
     test_chat_with_preset_config(CORPUS_ID)
     
     separator("SUMMARY")
     print("\n✅ All E2E tests completed!")
     print("\n📋 Key Findings:")
-    print("   1. Presets are templates stored in presets.json (custom) + hardcoded (core)")
+    print("   1. All presets are stored in presets.json and fully editable")
     print("   2. apply-preset-to-corpus copies preset values to corpus config file")
     print("   3. Chat uses merged config: fixed < global < corpus")
-    print("   4. Core presets are protected from modification")
+    print("   4. Default presets (balanced, creative, etc.) are seeded on startup")
     print("\n" + "="*70)
 
 if __name__ == "__main__":

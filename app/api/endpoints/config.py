@@ -30,10 +30,10 @@ async def list_presets(
     token_data: TokenData = Depends(verify_token)
 ):
     """
-    List all available presets (core + custom).
+    List all available presets.
     
     Returns:
-        List of preset summaries with id, name, description, model_name, is_core
+        List of preset summaries with id, name, description, model_name
     """
     preset_service = get_preset_service()
     presets = preset_service.list_presets()
@@ -68,9 +68,9 @@ async def create_preset(
     token_data: TokenData = Depends(verify_token)
 ):
     """
-    Create a new custom preset.
+    Create a new preset.
     
-    Core presets cannot be created (reserved IDs: balanced, creative, precise, fast).
+    If preset ID already exists, returns 400 Bad Request.
     
     Request body:
         - id: Unique preset identifier (required)
@@ -100,9 +100,7 @@ async def update_preset(
     token_data: TokenData = Depends(verify_token)
 ):
     """
-    Update an existing custom preset.
-    
-    Core presets cannot be modified.
+    Update an existing preset.
     """
     preset_service = get_preset_service()
     
@@ -122,9 +120,7 @@ async def delete_preset(
     token_data: TokenData = Depends(verify_token)
 ):
     """
-    Delete a custom preset.
-    
-    Core presets cannot be deleted.
+    Delete a preset.
     """
     preset_service = get_preset_service()
     

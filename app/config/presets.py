@@ -1,23 +1,21 @@
 """
 Preset system for chat configuration.
 
-Core presets are hardcoded (read-only).
-Custom presets stored in config/presets.json (editable via API).
+All presets are stored in config/presets.json and are fully editable via API.
+Default presets (balanced, creative, precise, fast) are seeded on first startup.
 """
 
 import json
-import os
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 
 
-# Core presets (read-only, hardcoded)
-CORE_PRESETS: Dict[str, Dict[str, Any]] = {
+# Default presets (seeded if presets.json is empty)
+DEFAULT_PRESETS: Dict[str, Dict[str, Any]] = {
     "balanced": {
         "id": "balanced",
         "name": "Equilibrado (Recomendado)",
         "description": "Respostas precisas e rápidas. Bom para uso geral.",
-        "is_core": True,
         "model_name": "gemini-2.5-pro",
         "generation_config": {
             "temperature": 0.2,
@@ -34,7 +32,6 @@ CORE_PRESETS: Dict[str, Dict[str, Any]] = {
         "id": "creative",
         "name": "Criativo",
         "description": "Respostas mais elaboradas. Melhor para explicações complexas.",
-        "is_core": True,
         "model_name": "gemini-2.5-pro",
         "generation_config": {
             "temperature": 0.5,
@@ -51,7 +48,6 @@ CORE_PRESETS: Dict[str, Dict[str, Any]] = {
         "id": "precise",
         "name": "Preciso",
         "description": "Respostas concisas e factuais. Ideal para consultas rápidas.",
-        "is_core": True,
         "model_name": "gemini-2.5-flash",
         "generation_config": {
             "temperature": 0.1,
@@ -67,7 +63,6 @@ CORE_PRESETS: Dict[str, Dict[str, Any]] = {
         "id": "fast",
         "name": "Rápido",
         "description": "Otimizado para velocidade. Menor latência.",
-        "is_core": True,
         "model_name": "gemini-2.5-flash",
         "generation_config": {
             "temperature": 0.2,
@@ -83,8 +78,8 @@ class PresetService:
     """
     Service for managing chat configuration presets.
     
-    Core presets are read-only (hardcoded).
-    Custom presets can be created/edited/deleted via API.
+    All presets are stored in config/presets.json and can be created,
+    updated, or deleted via API. Default presets are seeded on first startup.
     """
     
     def __init__(self, config_dir: str = "config"):
@@ -95,45 +90,46 @@ class PresetService:
             config_dir: Directory for config files (default: "config")
         """
         self.config_dir = Path(config_dir)
-        self.custom_presets_file = self.config_dir / "presets.json"
-        self._ensure_custom_presets_file()
+        self.presets_file = self.config_dir / "presets.json"
+        self._ensure_presets_file()
+        self._seed_defaults_if_empty()
     
-    def _ensure_custom_presets_file(self) -> None:
+    def _ensure_presets_file(self) -> None:
         """Create empty presets.json if not exists."""
-        if not self.custom_presets_file.exists():
-            self.custom_presets_file.write_text("{}", encoding="utf-8")
+        if not self.presets_file.exists():
+            self.presets_file.write_text("{}", encoding="utf-8")
     
-    def _load_custom_presets(self) -> Dict[str, Dict[str, Any]]:
-        """Load custom presets from file."""
+    def _seed_defaults_if_empty(self) -> None:
+        """Seed default presets if file is empty."""
+        presets = self._load_presets()
+        if not presets:
+            for preset_id, preset_data in DEFAULT_PRESETS.items():
+                presets[preset_id] = preset_data
+            self._save_presets(presets)
+    
+    def _load_presets(self) -> Dict[str, Dict[str, Any]]:
+        """Load presets from file."""
         try:
-            content = self.custom_presets_file.read_text(encoding="utf-8")
+            content = self.presets_file.read_text(encoding="utf-8")
             return json.loads(content) if content.strip() else {}
         except (json.JSONDecodeError, FileNotFoundError):
             return {}
     
-    def _save_custom_presets(self, presets: Dict[str, Dict[str, Any]]) -> None:
-        """Save custom presets to file."""
-        self.custom_presets_file.write_text(
+    def _save_presets(self, presets: Dict[str, Dict[str, Any]]) -> None:
+        """Save presets to file."""
+        self.presets_file.write_text(
             json.dumps(presets, indent=2, ensure_ascii=False),
             encoding="utf-8"
         )
     
     def get_all_presets(self) -> Dict[str, Dict[str, Any]]:
         """
-        Get all presets (core + custom).
+        Get all presets.
         
         Returns:
             Dict with all presets, keyed by preset ID
         """
-        all_presets = CORE_PRESETS.copy()
-        custom = self._load_custom_presets()
-        
-        # Mark custom presets
-        for preset_id, preset in custom.items():
-            preset["is_core"] = False
-            all_presets[preset_id] = preset
-        
-        return all_presets
+        return self._load_presets()
     
     def list_presets(self) -> List[Dict[str, Any]]:
         """
@@ -148,8 +144,7 @@ class PresetService:
                 "id": p["id"],
                 "name": p["name"],
                 "description": p["description"],
-                "model_name": p["model_name"],
-                "is_core": p.get("is_core", False)
+                "model_name": p["model_name"]
             }
             for p in all_presets.values()
         ]
@@ -169,7 +164,7 @@ class PresetService:
     
     def create_preset(self, preset_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Create a new custom preset.
+        Create a new preset.
         
         Args:
             preset_data: Preset configuration
@@ -184,35 +179,34 @@ class PresetService:
         
         if not preset_id:
             raise ValueError("Preset ID is required")
+            
+        if len(preset_id) > 64:
+            raise ValueError("Preset ID exceeds 64 characters")
         
-        if preset_id in CORE_PRESETS:
-            raise ValueError(f"Cannot create preset with core ID: {preset_id}")
+        presets = self._load_presets()
         
-        custom_presets = self._load_custom_presets()
-        
-        if preset_id in custom_presets:
+        if preset_id in presets:
             raise ValueError(f"Preset already exists: {preset_id}")
         
-        # Ensure required fields
+        # Build preset with required fields
         preset = {
             "id": preset_id,
             "name": preset_data.get("name", preset_id),
             "description": preset_data.get("description", ""),
-            "is_core": False,
             "model_name": preset_data.get("model_name", "gemini-2.5-pro"),
             "generation_config": preset_data.get("generation_config", {}),
             "rag_retrieval_top_k": preset_data.get("rag_retrieval_top_k", 10),
             "max_history_length": preset_data.get("max_history_length", 20)
         }
         
-        custom_presets[preset_id] = preset
-        self._save_custom_presets(custom_presets)
+        presets[preset_id] = preset
+        self._save_presets(presets)
         
         return preset
     
     def update_preset(self, preset_id: str, preset_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Update an existing custom preset.
+        Update an existing preset.
         
         Args:
             preset_id: Preset to update
@@ -222,37 +216,33 @@ class PresetService:
             Updated preset
             
         Raises:
-            ValueError: If preset is core or doesn't exist
+            ValueError: If preset doesn't exist
         """
-        if preset_id in CORE_PRESETS:
-            raise ValueError(f"Cannot modify core preset: {preset_id}")
+        presets = self._load_presets()
         
-        custom_presets = self._load_custom_presets()
-        
-        if preset_id not in custom_presets:
+        if preset_id not in presets:
             raise ValueError(f"Preset not found: {preset_id}")
         
         # Merge with existing
-        existing = custom_presets[preset_id]
+        existing = presets[preset_id]
         updated = {
             "id": preset_id,
             "name": preset_data.get("name", existing.get("name", preset_id)),
             "description": preset_data.get("description", existing.get("description", "")),
-            "is_core": False,
             "model_name": preset_data.get("model_name", existing.get("model_name")),
             "generation_config": preset_data.get("generation_config", existing.get("generation_config", {})),
             "rag_retrieval_top_k": preset_data.get("rag_retrieval_top_k", existing.get("rag_retrieval_top_k", 10)),
             "max_history_length": preset_data.get("max_history_length", existing.get("max_history_length", 20))
         }
         
-        custom_presets[preset_id] = updated
-        self._save_custom_presets(custom_presets)
+        presets[preset_id] = updated
+        self._save_presets(presets)
         
         return updated
     
     def delete_preset(self, preset_id: str) -> bool:
         """
-        Delete a custom preset.
+        Delete a preset.
         
         Args:
             preset_id: Preset to delete
@@ -261,18 +251,15 @@ class PresetService:
             True if deleted
             
         Raises:
-            ValueError: If preset is core or doesn't exist
+            ValueError: If preset doesn't exist
         """
-        if preset_id in CORE_PRESETS:
-            raise ValueError(f"Cannot delete core preset: {preset_id}")
+        presets = self._load_presets()
         
-        custom_presets = self._load_custom_presets()
-        
-        if preset_id not in custom_presets:
+        if preset_id not in presets:
             raise ValueError(f"Preset not found: {preset_id}")
         
-        del custom_presets[preset_id]
-        self._save_custom_presets(custom_presets)
+        del presets[preset_id]
+        self._save_presets(presets)
         
         return True
 

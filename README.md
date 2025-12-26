@@ -1,6 +1,6 @@
 # RAG API - Vertex AI
 
-API Facade para gestão de documentos e chat com Google Vertex AI RAG Engine.
+API para gestão de documentos e chat com Google Vertex AI RAG Engine.
 
 ---
 

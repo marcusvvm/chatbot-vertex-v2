@@ -20,9 +20,11 @@ Config Final    → Merge aplicado no chat
 
 ## Presets
 
-Presets são templates de configuração pré-definidos.
+Presets são templates de configuração armazenados em `config/presets.json`.
 
-### Core Presets (imutáveis)
+**Todos os presets são editáveis via API.** Presets default (balanced, creative, precise, fast) são criados automaticamente se o arquivo estiver vazio.
+
+### Presets Default
 
 | ID         | Nome        | Modelo           | Temperature | Uso                   |
 | ---------- | ----------- | ---------------- | ----------- | --------------------- |
@@ -62,10 +64,6 @@ fast:
   rag_top_k: 3
   history: 10
 ```
-
-### Custom Presets
-
-Presets customizados podem ser criados via API e são armazenados em `config/presets.json`.
 
 ---
 
@@ -141,7 +139,7 @@ Defaults aplicados quando corpus não tem config customizada:
 
 ### config/presets.json
 
-Storage de presets customizados criados via API.
+Todos os presets (default + customizados). Preset IDs têm limite de 64 caracteres. Presets default são criados automaticamente se o arquivo estiver vazio.
 
 ### config/corpus/{corpus_id}.json
 

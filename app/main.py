@@ -14,6 +14,7 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.GOOGLE_APPLICATION_CREDE
 from app.core.exceptions import google_exception_handler, global_exception_handler
 from app.api.router import api_router
 from google.api_core import exceptions as google_exceptions
+from google.api_core import exceptions as google_exceptions
 from google.oauth2 import service_account
 
 # ============================================================================
@@ -57,6 +58,8 @@ app.add_exception_handler(Exception, global_exception_handler)
 
 # Include Router
 app.include_router(api_router, prefix=settings.API_PREFIX)
+
+
 
 @app.get("/health", tags=["Health"])
 async def health_check():
