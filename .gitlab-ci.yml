@@ -1,0 +1,10 @@
+stages:
+  - never
+
+never_run:
+  stage: never
+  script:
+    - echo "Este job nunca deve ser executado."
+  rules:
+    - if: '$CI_MERGE_REQUEST_ID == null'
+      when: never
