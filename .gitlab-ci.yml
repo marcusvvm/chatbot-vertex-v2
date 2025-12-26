@@ -1,10 +1,100 @@
 stages:
-  - never
+  - deploy
 
-never_run:
-  stage: never
-  script:
-    - echo "Este job nunca deve ser executado."
+# Seta as variáveis com os dados do ambiente que está sendo feita a atualização do projeto
+workflow:
   rules:
-    - if: '$CI_MERGE_REQUEST_ID == null'
-      when: never
+    - if: ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == 'main' || $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_REF_NAME == "main")
+      variables:
+        DEPLOY_VAR: 'producao'
+        BRANCH_VAR: 'main'
+    - if: ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "homol" || $CI_COMMIT_BRANCH == "homol" || $CI_COMMIT_REF_NAME == "homol")
+      variables:
+        DEPLOY_VAR: 'homologacao'
+        BRANCH_VAR: 'homol'
+
+# Seta as variáveis para uso no script
+variables:
+  PROJETO_DIR: '/var/www/html/$CI_PROJECT_NAME'
+  GIT_REMOTE: 'git@gitlab.crea-go.org.br:ia/bia/bia-back.git'
+
+# Script para atualização do projeto
+implanta-app:
+  stage: deploy
+  tags:
+    # Tags configuradas nos runners
+    - $DEPLOY_VAR
+  only:
+    # Branches que estão escutando as atualizações para sincronização com os respectivos runners
+    - main
+    - homol
+  script:
+    # Print variáveis GitLab CI
+    - echo "CI_COMMIT_BRANCH= $CI_COMMIT_BRANCH"
+    - echo "CI_COMMIT_REF_NAME= $CI_COMMIT_REF_NAME"
+    - echo "CI_MERGE_REQUEST_TARGET_BRANCH_NAME= $CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+    - echo "CI_MERGE_REQUEST_SOURCE_BRANCH_NAME= $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+    # Print variáveis
+    - echo "BRANCH_VAR= $BRANCH_VAR"
+    #- cd /var/www/html/repositorios
+    - cd /var/www/html
+    # Verificar se o diretório com o nome do projeto existe
+    - |
+      if [ -d "$PROJETO_DIR" ]; then
+          echo "O diretório existe"
+          cd "$PROJETO_DIR"
+          git branch | grep $BRANCH_VAR
+          BRANCH_EXISTE=$(echo $?)
+          if [ $BRANCH_EXISTE -eq 0 ]; then
+              git fetch
+              git pull origin $BRANCH_VAR
+          fi
+      else
+          echo "Diretório não existe..."
+          git clone -b $BRANCH_VAR --single-branch $GIT_REMOTE $CI_PROJECT_NAME
+      fi
+after_script:
+  # Executa após script de atualização do projeto (Python/FastAPI)
+  - |
+    if [ -d "$PROJETO_DIR" ]; then
+        echo "O diretório $PROJETO_DIR existe"
+        cd "$PROJETO_DIR"
+
+        echo "Usuário atual:"
+        whoami
+
+        echo "Diretório atual:"
+        pwd
+
+        echo "Versão do Python:"
+        python3 --version
+
+        # Criar/atualizar ambiente virtual
+        echo "Configurando ambiente virtual..."
+        if [ ! -d "venv" ]; then
+            echo "Criando ambiente virtual..."
+            python3 -m venv venv
+        fi
+
+        # Ativar venv e instalar dependências
+        echo "Instalando dependências..."
+        source venv/bin/activate
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+        echo "Dependências instaladas com sucesso!"
+
+        # Reiniciar serviço Gunicorn (se configurado como systemd service)
+        echo "Reiniciando serviço..."
+        if systemctl is-active --quiet bia-back; then
+            sudo systemctl restart bia-back
+            echo "Serviço bia-back reiniciado!"
+        else
+            echo "Serviço bia-back não está configurado como systemd service."
+            echo "Execute manualmente: ./venv/bin/gunicorn app.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000"
+        fi
+
+        echo "Deploy finalizado!"
+    else
+        echo "Diretório $PROJETO_DIR não existe para o deploy..."
+    fi
