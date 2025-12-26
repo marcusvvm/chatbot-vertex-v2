@@ -66,6 +66,9 @@ after_script:
         echo "👤 Usuário: $(whoami)"
         echo "🐍 Python: $(python3 --version)"
 
+        # Criar diretório de logs local
+        mkdir -p logs
+
         # Recriar ambiente virtual para garantir compatibilidade
         echo ""
         echo "📦 Configurando ambiente virtual..."
@@ -81,8 +84,30 @@ after_script:
         echo "📥 Instalando dependências..."
         source venv/bin/activate
         pip install --upgrade pip --quiet
-        pip install -r requirements.txt --quiet
+        pip install -r requirements.txt
         echo "✅ Dependências instaladas!"
+
+        # Verificar se .env existe e carregar variáveis
+        echo ""
+        echo "🔍 Verificando configuração..."
+        if [ -f ".env" ]; then
+            echo "✅ Arquivo .env encontrado"
+            export $(grep -v '^#' .env | xargs)
+        else
+            echo "⚠️  AVISO: Arquivo .env NÃO encontrado!"
+            echo "   Copie .env.example para .env e configure"
+        fi
+
+        # Definir porta (fallback para 8000)
+        PORT=${PORT:-8000}
+        echo "📍 Porta configurada: $PORT"
+
+        # Verificar se credenciais existem
+        if [ -f "credentials/credentials-rag.json" ]; then
+            echo "✅ Credenciais GCP encontradas"
+        else
+            echo "⚠️  AVISO: Credenciais GCP NÃO encontradas!"
+        fi
 
         # Parar processo gunicorn existente (se houver)
         echo ""
@@ -90,26 +115,59 @@ after_script:
         pkill -f "gunicorn app.main:app" || true
         sleep 2
 
-        # Iniciar gunicorn em background
-        echo "Iniciando Gunicorn..."
-        nohup ./venv/bin/gunicorn app.main:app \
+        # Verificar porta disponível
+        if lsof -i :$PORT > /dev/null 2>&1; then
+            echo "⚠️  Porta $PORT em uso. Matando processos..."
+            fuser -k $PORT/tcp || true
+            sleep 2
+        fi
+
+        # Iniciar gunicorn em background com logs locais
+        echo ""
+        echo "🚀 Iniciando Gunicorn..."
+        echo "Comando: ./venv/bin/gunicorn app.main:app --workers 4 --bind 0.0.0.0:$PORT"
+        
+        ./venv/bin/gunicorn app.main:app \
             --workers 4 \
             --worker-class uvicorn.workers.UvicornWorker \
-            --bind 0.0.0.0:8000 \
+            --bind 0.0.0.0:$PORT \
             --timeout 120 \
-            --access-logfile /var/log/bia-back-access.log \
-            --error-logfile /var/log/bia-back-error.log \
+            --access-logfile logs/access.log \
+            --error-logfile logs/error.log \
+            --capture-output \
+            --pid logs/gunicorn.pid \
             --daemon
 
-        sleep 3
+        sleep 5
+
+        # Mostrar logs de erro se existirem
+        echo ""
+        echo "📋 Logs de inicialização:"
+        if [ -f "logs/error.log" ]; then
+            cat logs/error.log
+        fi
+        if [ -f "logs/startup.log" ]; then
+            cat logs/startup.log
+        fi
 
         # Verificar se o servidor iniciou
+        echo ""
         if pgrep -f "gunicorn app.main:app" > /dev/null; then
             echo "✅ Servidor Gunicorn iniciado com sucesso!"
             echo "📍 Endpoint: http://localhost:8000"
-            echo "📋 Logs: /var/log/bia-back-*.log"
+            echo "📋 Logs: $PROJETO_DIR/logs/"
         else
             echo "❌ Falha ao iniciar o servidor!"
+            echo ""
+            echo "🔍 Diagnóstico:"
+            echo "Processos Python:"
+            ps aux | grep -E "(python|gunicorn)" | grep -v grep || echo "Nenhum processo Python encontrado"
+            echo ""
+            echo "Porta 8000:"
+            lsof -i :8000 || echo "Porta 8000 disponível"
+            echo ""
+            echo "Últimas linhas do log de erro:"
+            tail -20 logs/error.log 2>/dev/null || echo "Sem logs de erro"
             exit 1
         fi
 
