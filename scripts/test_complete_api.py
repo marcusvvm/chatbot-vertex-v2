@@ -16,7 +16,7 @@ from datetime import datetime
 # Configuration
 BASE_URL = "http://localhost:8000"
 API_V1 = f"{BASE_URL}/api/v1"
-TEST_PDF_PATH = "tests/arquivo_teste.pdf"
+TEST_FILE_PATH = "tests/arquivo_teste.txt"
 TEST_TXT_CONTENT = "Este é um documento de teste para o sistema RAG. O presidente do CREA Goiás é o Engenheiro Civil Lamartine Moreira. A sede fica na Rua 239, Setor Universitário."
 
 # Add parent directory to path for imports
@@ -278,14 +278,14 @@ class APITester:
         # Test with PDF file
         start = time.time()
         try:
-            if not os.path.exists(TEST_PDF_PATH):
-                self.add_result("Upload Document - PDF", False, 
-                               f"Test file not found: {TEST_PDF_PATH}", 
+            if not os.path.exists(TEST_FILE_PATH):
+                self.add_result("Upload Document - TXT", False, 
+                               f"Test file not found: {TEST_FILE_PATH}", 
                                0, "POST /documents/upload")
                 return False
             
-            with open(TEST_PDF_PATH, "rb") as f:
-                files = {"file": ("arquivo_teste.pdf", f, "application/pdf")}
+            with open(TEST_FILE_PATH, "rb") as f:
+                files = {"file": ("arquivo_teste.txt", f, "text/plain")}
                 data = {"corpus_id": self.test_corpus_id, "user_id": "test_user"}
                 response = requests.post(
                     f"{API_V1}/documents/upload", 
@@ -297,21 +297,21 @@ class APITester:
             duration = time.time() - start
             
             if response.status_code != 201:
-                self.add_result("Upload Document - PDF", False, 
+                self.add_result("Upload Document - TXT", False, 
                                f"Expected 201, got {response.status_code}: {response.text}", 
                                duration, "POST /documents/upload")
                 return False
             
             data = response.json()
             if "rag_file_id" not in data:
-                self.add_result("Upload Document - PDF", False, 
+                self.add_result("Upload Document - TXT", False, 
                                "Response missing 'rag_file_id'", 
                                duration, "POST /documents/upload")
                 return False
             
             self.test_file_id = data["rag_file_id"]
-            self.add_result("Upload Document - PDF", True, 
-                           f"PDF uploaded (ID: {self.test_file_id[:8]}...)", 
+            self.add_result("Upload Document - TXT", True, 
+                           f"TXT uploaded (ID: {self.test_file_id[:8]}...)", 
                            duration, "POST /documents/upload")
             
             # Also test with TXT file

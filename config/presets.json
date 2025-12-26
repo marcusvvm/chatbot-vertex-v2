@@ -14,5 +14,15 @@
     },
     "rag_retrieval_top_k": 10,
     "max_history_length": 20
+  },
+  "test<>!@#$%": {
+    "id": "test<>!@#$%",
+    "name": "Special Test",
+    "description": "",
+    "is_core": false,
+    "model_name": "gemini-2.5-pro",
+    "generation_config": {},
+    "rag_retrieval_top_k": 10,
+    "max_history_length": 20
   }
 }

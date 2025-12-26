@@ -1,109 +1,139 @@
-# 🏗️ Arquitetura do Sistema
+# Arquitetura do Sistema
 
-Este documento descreve a arquitetura técnica da API RAG Facade, com foco nas decisões de design relacionadas à infraestrutura Google Cloud, autenticação e conformidade.
-
----
-
-## 📋 Configuração Atual
-
-### Variáveis de Ambiente (.env)
-
-| Variável                         | Valor Exemplo                      | Função                                        |
-| -------------------------------- | ---------------------------------- | --------------------------------------------- |
-| `GCP_PROJECT_ID`                 | `rag-projetos-crea`                | Projeto GCP principal                         |
-| `GCP_LOCATION`                   | `europe-west3`                     | Região do RAG Engine e armazenamento de dados |
-| `GCP_LOCATION_CHAT`              | `us-central1`                      | Região do modelo Gemini (LLM)                 |
-| `GOOGLE_APPLICATION_CREDENTIALS` | `credentials/credentials-rag.json` | Caminho para credenciais da Service Account   |
+Arquitetura técnica da RAG API Facade com foco em infraestrutura Google Cloud e decisões de design.
 
 ---
 
-## 🌍 Arquitetura de Regiões
+## Configuração GCP
 
-### 1. RAG & Dados (`europe-west3`)
-* **Componentes**: Vertex AI RAG Engine, Corpora, Documentos, Índices Vetoriais
-* **Configuração**: Variável `GCP_LOCATION`
+### Variáveis de Ambiente
 
-### 2. Chat & LLM (`us-central1`)
-* **Componentes**: Modelo Gemini (`gemini-2.5-pro`)
-* **Motivo**: **Disponibilidade de Recursos**. Modelos mais recentes e avançados são lançados primeiro ou exclusivamente em regiões dos EUA
-* **Configuração**: Variável `GCP_LOCATION_CHAT`
+| Variável                         | Valor                              | Função                    |
+| -------------------------------- | ---------------------------------- | ------------------------- |
+| `GCP_PROJECT_ID`                 | `rag-projetos-crea`                | Projeto GCP               |
+| `GCP_LOCATION`                   | `europe-west3`                     | Região RAG Engine (dados) |
+| `GCP_LOCATION_CHAT`              | `us-central1`                      | Região Gemini (LLM)       |
+| `GOOGLE_APPLICATION_CREDENTIALS` | `credentials/credentials-rag.json` | Service account           |
 
-### Fluxo de Dados
-1. **Upload**: Documentos são enviados e indexados na região da Europa
-2. **Retrieval**: O sistema busca trechos relevantes (contexto) na região da Europa
-3. **Geração**: O contexto recuperado é enviado para o modelo nos EUA apenas para a geração da resposta (processamento efêmero)
+### Arquitetura de Regiões
+
+| Componente | Região         | Responsabilidade                                          |
+| ---------- | -------------- | --------------------------------------------------------- |
+| RAG Engine | `europe-west3` | Armazenamento de documentos, índices vetoriais, retrieval |
+| Gemini LLM | `us-central1`  | Geração de respostas (modelos mais recentes)              |
+
+**Fluxo de dados:**
+1. Upload → Documentos indexados na Europa
+2. Retrieval → Chunks recuperados da Europa
+3. Geração → Contexto enviado para LLM nos EUA
+4. Resposta → Retornada ao cliente
 
 ---
 
-## 🔐 Estratégia de Autenticação Unificada
+## Estrutura do Código
 
-O projeto utiliza uma **Credencial Única Unificada** para simplificar a gestão e operação.
+```
+app/
+├── api/
+│   ├── endpoints/              # Controllers HTTP
+│   │   ├── chat.py             # POST /chat/
+│   │   ├── config.py           # /config/* (presets, corpus config)
+│   │   ├── corpus.py           # /management/corpus
+│   │   └── documents.py        # /documents/*
+│   └── router.py               # Agregador de rotas
+├── config/                     # Sistema de configuração dinâmica
+│   ├── adapters.py             # Tradução config → Google SDK
+│   ├── models.py               # Modelos internos (dataclasses)
+│   ├── presets.py              # CRUD de presets (balanced, creative, etc.)
+│   └── service.py              # ConfigService (merge global + corpus)
+├── core/                       # Infraestrutura transversal
+│   ├── auth.py                 # Criação/validação JWT
+│   ├── config.py               # Settings (pydantic-settings)
+│   ├── dependencies.py         # Dependency injection (FastAPI Depends)
+│   └── exceptions.py           # Exception handlers
+├── domain/                     # Lógica de negócio
+│   ├── chat/service.py         # ChatService (RAG + Gemini)
+│   ├── corpus/service.py       # CorpusService (CRUD Vertex AI)
+│   └── documents/service.py    # DocumentService (upload files)
+├── infrastructure/
+│   └── gcp/client.py           # GCPClient singleton (credenciais)
+├── schemas/                    # Pydantic schemas (request/response)
+└── main.py                     # Entrypoint FastAPI
+```
 
-### Service Account
-* **Arquivo**: `credentials/credentials-rag.json`
-* **Projeto GCP**: `rag-projetos-crea` (ou conforme configurado no `.env`)
-* **Permissões Necessárias**:
-  * Vertex AI User
-  * Vertex AI Administrator (para gestão de corpora)
+---
 
-### Implementação Técnica
+## Autenticação
 
-Devido a particularidades dos SDKs do Google (`vertexai` vs `google.genai`), a autenticação é tratada de forma específica:
+### API (JWT)
 
-1. **Variável de Ambiente**: `GOOGLE_APPLICATION_CREDENTIALS` aponta para o JSON da chave
-2. **Workaround SDK**: O SDK `vertexai.rag` ignora credenciais passadas explicitamente em alguns métodos, exigindo a variável de ambiente global
-3. **Escopos OAuth**: O SDK `google.genai` requer escopos explícitos (`https://www.googleapis.com/auth/cloud-platform`) quando inicializado com credenciais de service account
+- Algoritmo: HS256
+- Secret: Configurado em `JWT_SECRET_KEY`
+- Todos os endpoints (exceto `/health`, `/docs`) requerem token
+
+### Google Cloud (Service Account)
+
+- Arquivo: `credentials/credentials-rag.json`
+- Escopos: `https://www.googleapis.com/auth/cloud-platform`
+- Permissões IAM: `Vertex AI User`, `Vertex AI Administrator`
 
 ```python
-# Exemplo de Inicialização (VertexService)
-self.credentials = service_account.Credentials.from_service_account_file(
+# Inicialização (app/infrastructure/gcp/client.py)
+credentials = service_account.Credentials.from_service_account_file(
     settings.GOOGLE_APPLICATION_CREDENTIALS
 ).with_scopes(['https://www.googleapis.com/auth/cloud-platform'])
 ```
 
 ---
 
-## 🧩 Componentes Principais
+## Ciclo de Requisição de Chat
 
-### 1. RAG Facade (FastAPI)
-Camada de abstração que expõe endpoints REST para gestão de documentos e chat.
-* **Endpoints**: `/management` (Corpus/Files), `/documents` (Upload/Delete), `/chat` (Interação)
-* **Segurança**: JWT Authentication
-
-### 2. Google Vertex AI
-Plataforma backend para inteligência artificial.
-* **RAG Engine**: Gerencia indexação e recuperação vetorial
-* **Gemini API**: Provê o modelo de linguagem generativa
-
----
-
-## 🔄 Ciclo de Vida da Requisição de Chat
-
-1. **Auth**: API valida token JWT
-2. **Retrieval (Europa)**: `VertexService` consulta o RAG Corpus em `GCP_LOCATION`
-   - Busca os top K chunks mais relevantes (configurável via `RAG_RETRIEVAL_TOP_K`)
-3. **Prompting**: Sistema constrói prompt com:
-   - System instruction (persona, regras de grounding, formatação)
-   - Contexto recuperado do RAG
+```
+1. Request → JWT validation
+2. ConfigService → Carrega config (global + corpus)
+3. RAG Tool → Monta retrieval (top_k chunks)
+4. Gemini API → generate_content() com:
+   - System instruction (persona + grounding rules)
    - Histórico de conversa
    - Mensagem do usuário
-4. **Generation (EUA)**: `VertexService` envia prompt para Gemini em `GCP_LOCATION_CHAT`
-   - **THINKING_BUDGET**: 1024 tokens reservados para raciocínio interno
-   - **MAX_OUTPUT_TOKENS**: 16384 tokens máximo de resposta
-   - **TIMEOUT**: 90 segundos
-5. **Response**: Resposta gerada (Markdown formatado) é retornada ao usuário
+   - RAG grounding
+5. Response → Texto formatado em Markdown
+```
+
+### Parâmetros de Geração (defaults)
+
+| Parâmetro             | Valor            | Descrição                    |
+| --------------------- | ---------------- | ---------------------------- |
+| `model_name`          | `gemini-2.5-pro` | Modelo LLM                   |
+| `temperature`         | 0.2              | Respostas determinísticas    |
+| `max_output_tokens`   | 16384            | Limite de resposta           |
+| `thinking_budget`     | 1024             | Tokens de raciocínio interno |
+| `rag_retrieval_top_k` | 10               | Chunks recuperados           |
+| `timeout_seconds`     | 90               | Timeout de requisição        |
 
 ---
 
-## ⚙️ Configurações de Chat
+## Concorrência
 
-Ver [CHAT_CONFIGURATION.md](CHAT_CONFIGURATION.md) para detalhes sobre:
-- Thinking Budget (controle de raciocínio interno)
-- Output tokens (limite de resposta)
-- RAG retrieval parameters (quantos chunks buscar)
-- Timeout de requisição
-- Safety settings
+### Arquitetura
+
+```
+[Gunicorn] → 4 workers (processos)
+    ↓
+[FastAPI async] → event loop
+    ↓
+[ThreadPoolExecutor] → 50 threads para chamadas síncronas ao Gemini
+```
+
+### Configuração
+
+```python
+# app/main.py
+chat_executor = ThreadPoolExecutor(max_workers=50)
+```
+
+O SDK `google.genai` é síncrono. O endpoint de chat usa `run_in_executor` para não bloquear o event loop.
 
 ---
 
-**Última Atualização**: Dezembro 2025
+**Última Atualização:** Dezembro 2025
