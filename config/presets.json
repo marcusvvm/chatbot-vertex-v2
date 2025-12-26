@@ -1,0 +1,18 @@
+{
+  "preset-maluco": {
+    "id": "preset-maluco",
+    "name": "preset-maluco",
+    "description": "borafi",
+    "is_core": false,
+    "model_name": "gemini-2.5-pro",
+    "generation_config": {
+      "temperature": 0.2,
+      "max_output_tokens": 11520,
+      "top_p": 0.8,
+      "top_k": 40,
+      "thinking_budget": 1024
+    },
+    "rag_retrieval_top_k": 10,
+    "max_history_length": 20
+  }
+}

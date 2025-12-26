@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+.env
+.venv
+
+# IDEs
+.vscode/
+.idea/
+
+# System
+.DS_Store
+
+# Logs
+*.log
+
+# Credentials (SENSITIVE - Never commit!)
+credentials/
+creds.json
+service_account.json
+*.json.bak
+credentials-rag.json
+
+# Pytest
+.pytest_cache/
